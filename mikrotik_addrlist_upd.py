@@ -26,16 +26,10 @@ def lists_subtraction(list_minuend, list_subtrahend):
 
 
 def generate_ip_pattern():
-    re_pattern = ''
-    re_pattern_parts = [
-        r'(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)',
-        r'\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)',
-        r'\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)',
-        r'\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)',
-        r'(\/(([1-3][0-9]|[1-9])[^0-9]))?',
-    ]
-    for re_pattern_part in re_pattern_parts:
-        re_pattern += re_pattern_part
+    ip_b = r'(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)'
+    mask = r'(\/(([1-3][0-9]|[1-9])[^0-9]))?'
+    dot = r'\.'
+    re_pattern = (ip_b + dot) * 3 + ip_b + mask
     return re_pattern
 
 
