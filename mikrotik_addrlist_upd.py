@@ -81,6 +81,8 @@ class ListUpdater:
     def generate_fresh_ip_list(self):
         data_list = request.urlopen(self.ip_list_url)
         content = data_list.read().decode(data_list.headers.get_content_charset('UTF-8'))
+        if not content:
+            exit(0)
         re_output = re.finditer(self.ip_pattern, content)
         for line in re_output:
             ip_addr = line.group(0).replace('\n', '').replace('"', '')
