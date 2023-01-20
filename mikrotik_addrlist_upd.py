@@ -3,14 +3,14 @@
 
 
 import re
-import argparse
 from urllib import request
-from paramiko import SSHConfig
 from netmiko import ConnectHandler
+from argparse import ArgumentParser
+from mikrotik_utils import generate_device, lists_subtraction, generate_ip_pattern
 
 
 def args_parser():
-    parser = argparse.ArgumentParser(description='RouterOS list updater.')
+    parser = ArgumentParser(description='RouterOS list updater.')
     parser.add_argument('-s', '--sshconf', type=str, help='Path to ssh_config.', required=False)
     parser.add_argument('-n', '--host', type=str, help='Host (in ssh_config).', required=True)
     parser.add_argument('-u', '--url', type=str, help='URL to IP list.', required=True)
@@ -20,19 +20,6 @@ def args_parser():
     return arguments
 
 
-def lists_subtraction(list_minuend, list_subtrahend):
-    list_difference = [element for element in list_minuend if element not in list_subtrahend]
-    return list_difference
-
-
-def generate_ip_pattern():
-    ip_b = r'(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)'
-    mask = r'(\/(([1-3][0-9]|[1-9])[^0-9]))?'
-    dot = r'\.'
-    re_pattern = (ip_b + dot) * 3 + ip_b + mask
-    return re_pattern
-
-
 class ListUpdater:
 
     def __init__(self, host, ip_list_url, list_name, label, ssh_config_file='~/.ssh/config'):
@@ -40,37 +27,16 @@ class ListUpdater:
         self.ip_list_current = []
         self.ip_list_add = []
         self.ip_list_remove = []
-        self.ssh_config_file = ssh_config_file
-        self.host = host
         self.ip_list_url = ip_list_url
         self.list_name = list_name
         self.label = label
         self.ip_pattern = generate_ip_pattern()
-        self.mikrotik_router = self.generate_device()
+        self.mikrotik_router = generate_device(ssh_config_file, host)
 
     def run(self):
         self.generate_lists()
         if self.ip_list_add or self.ip_list_remove:
             self.update_ip_on_device()
-
-    def generate_device(self):
-        disabled_algorithms = {'pubkeys': ['rsa-sha2-256', 'rsa-sha2-512']}
-        mkt_ssh_conf = SSHConfig()
-        mkt_ssh_conf.parse(open(self.ssh_config_file))
-        hostname = mkt_ssh_conf.lookup(self.host)['hostname']
-        key = mkt_ssh_conf.lookup(self.host)['identityfile'][0]
-        user = mkt_ssh_conf.lookup(self.host)['user']
-        port = mkt_ssh_conf.lookup(self.host)['port']
-        mikrotik_router = {
-            'device_type': 'mikrotik_routeros',
-            'host': hostname,
-            'port': port,
-            'username': user,
-            'use_keys': True,
-            'key_file': key,
-            'disabled_algorithms': disabled_algorithms,
-        }
-        return mikrotik_router
 
     def generate_lists(self):
         self.generate_fresh_ip_list()
