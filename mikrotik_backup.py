@@ -52,13 +52,13 @@ class Backuper:
     def create_backup(self):
         self.connect.send_command(f'/export file="{self.subdir}/{self.backup_name}"')
         self.connect.send_command(f'/system backup save dont-encrypt=yes name={self.subdir}/{self.backup_name}')
+        # Wait for files creation
+        sleep(self.delay)
 
     def download_backup(self, backup_type):
         src_file = f'{self.backup_name}.{backup_type}'
         dst_file = f'{self.path_to_backup}/{self.backup_name}.{backup_type}'
         direction = 'get'
-        # Wait for files creation
-        sleep(self.delay)
         transfer_dict = file_transfer(
             self.connect,
             source_file=src_file,
@@ -67,6 +67,8 @@ class Backuper:
             direction=direction,
             overwrite_file=True,
         )
+        # Wait for file download
+        sleep(self.delay)
 
     def remove_backup_from_device(self, backup_type):
         self.connect.send_command(f'/file remove {self.subdir}/{self.backup_name}.{backup_type}')
