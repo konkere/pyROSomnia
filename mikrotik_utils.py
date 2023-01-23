@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 
+import re
 from paramiko import SSHConfig
 
 
@@ -36,3 +37,9 @@ def generate_ip_pattern():
     dot = r'\.'
     re_pattern = (ip_b + dot) * 3 + ip_b + mask
     return re_pattern
+
+
+def allowed_filename(filename):
+    allowed_pattern = re.compile('[^A-z0-9!@#$%^&-]')
+    allowed_name = re.sub(allowed_pattern, '_', filename)
+    return allowed_name
