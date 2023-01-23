@@ -59,14 +59,18 @@ class Backuper:
         src_file = f'{self.backup_name}.{backup_type}'
         dst_file = f'{self.path_to_backup}/{self.backup_name}.{backup_type}'
         direction = 'get'
-        transfer_dict = file_transfer(
-            self.connect,
-            source_file=src_file,
-            dest_file=dst_file,
-            file_system=self.subdir,
-            direction=direction,
-            overwrite_file=True,
-        )
+        try:
+            transfer_dict = file_transfer(
+                self.connect,
+                source_file=src_file,
+                dest_file=dst_file,
+                file_system=self.subdir,
+                direction=direction,
+                overwrite_file=True,
+            )
+        # Bug in scp_handler.py → https://github.com/ktbyers/netmiko/issues/2818 (fixed only in develop branch)
+        except ValueError:
+            pass
         # Wait for file download
         sleep(self.delay)
 
