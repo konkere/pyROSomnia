@@ -4,6 +4,7 @@
 import re
 from time import sleep
 from os import path, mkdir
+from threading import Thread
 from datetime import datetime
 from argparse import ArgumentParser
 from netmiko import ConnectHandler, file_transfer
@@ -25,17 +26,19 @@ def hosts_to_devices(hosts):
     for hostname in hosts:
         hostname = hostname.strip()
         if hostname:
-            devices.append(Backuper(
-                ssh_config_file=args['sshconf'],
+            host_device = Backuper(
+                ssh_config_file=args_in['sshconf'],
                 host=hostname,
-                path_to_backups=args['path'],
-            ))
+                path_to_backups=args_in['path'],
+            )
+            devices.append(host_device)
     return devices
 
 
-class Backuper:
+class Backuper(Thread):
 
-    def __init__(self, host, path_to_backups, ssh_config_file='~/.ssh/config'):
+    def __init__(self, host, path_to_backups, ssh_config_file='~/.ssh/config', *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self.path_to_backups = path_to_backups
         self.mikrotik_router = generate_device(ssh_config_file, host)
         self.connect = ConnectHandler(**self.mikrotik_router)
@@ -100,15 +103,21 @@ class Backuper:
         self.connect.send_command(f'/file remove {self.subdir}/{backup_name}.{backup_type}')
 
 
-if __name__ == '__main__':
-    args = args_parser()
-    if args['hostlist']:
-        with open(args['hostlist']) as file:
+def main():
+    if args_in['hostlist']:
+        with open(args_in['hostlist']) as file:
             hosts_list = file.readlines()
-    elif args['host']:
-        hosts_list = [args['host']]
+    elif args_in['host']:
+        hosts_list = [args_in['host']]
     else:
         exit(0)
     devices_backup = hosts_to_devices(hosts_list)
     for device in devices_backup:
-        device.run()
+        device.start()
+    for device in devices_backup:
+        device.join()
+
+
+if __name__ == '__main__':
+    args_in = args_parser()
+    main()
