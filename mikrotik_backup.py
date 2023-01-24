@@ -13,10 +13,24 @@ from mikrotik_utils import generate_device, allowed_filename
 def args_parser():
     parser = ArgumentParser(description='RouterOS backuper.')
     parser.add_argument('-s', '--sshconf', type=str, help='Path to ssh_config.', required=False)
-    parser.add_argument('-n', '--host', type=str, help='Host (in ssh_config).', required=True)
+    parser.add_argument('-n', '--host', type=str, help='Single Host (in ssh_config).', required=False)
+    parser.add_argument('-l', '--hostlist', type=str, help='Path to file with list of Hosts.', required=False)
     parser.add_argument('-p', '--path', type=str, help='Path to backups.', required=True)
     arguments = parser.parse_args().__dict__
     return arguments
+
+
+def hosts_to_devices(hosts):
+    devices = []
+    for hostname in hosts:
+        hostname = hostname.strip()
+        if hostname:
+            devices.append(Backuper(
+                ssh_config_file=args['sshconf'],
+                host=hostname,
+                path_to_backups=args['path'],
+            ))
+    return devices
 
 
 class Backuper:
@@ -88,10 +102,13 @@ class Backuper:
 
 if __name__ == '__main__':
     args = args_parser()
-    device_backup = Backuper(
-        ssh_config_file=args['sshconf'],
-        host=args['host'],
-        path_to_backups=args['path'],
-    )
-
-    device_backup.run()
+    if args['hostlist']:
+        with open(args['hostlist']) as file:
+            hosts_list = file.readlines()
+    elif args['host']:
+        hosts_list = [args['host']]
+    else:
+        exit(0)
+    devices_backup = hosts_to_devices(hosts_list)
+    for device in devices_backup:
+        device.run()
