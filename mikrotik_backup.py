@@ -3,10 +3,10 @@
 
 import re
 from time import sleep
-from os import path, mkdir
 from threading import Thread
 from datetime import datetime
 from argparse import ArgumentParser
+from os import path, mkdir, environ
 from netmiko import ConnectHandler, file_transfer
 from mikrotik_utils import generate_device, allowed_filename
 
@@ -23,11 +23,12 @@ def args_parser():
 
 def hosts_to_devices(hosts):
     devices = []
+    ssh_config_file = args_in['sshconf'] if args_in['sshconf'] else path.join(environ.get('HOME'), '.ssh/config')
     for hostname in hosts:
         hostname = hostname.strip()
         if hostname:
             host_device = Backuper(
-                ssh_config_file=args_in['sshconf'],
+                ssh_config_file=ssh_config_file,
                 host=hostname,
                 path_to_backups=args_in['path'],
             )
@@ -37,7 +38,7 @@ def hosts_to_devices(hosts):
 
 class Backuper(Thread):
 
-    def __init__(self, host, path_to_backups, ssh_config_file='~/.ssh/config', *args, **kwargs):
+    def __init__(self, host, path_to_backups, ssh_config_file, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.path_to_backups = path_to_backups
         self.mikrotik_router = generate_device(ssh_config_file, host)
