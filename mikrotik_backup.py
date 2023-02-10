@@ -8,7 +8,7 @@ from datetime import datetime
 from argparse import ArgumentParser
 from os import path, mkdir, environ
 from netmiko import ConnectHandler, file_transfer
-from mikrotik_utils import generate_device, allowed_filename, print_output
+from mikrotik_utils import generate_device, allowed_filename, print_output, remove_old_files
 
 
 def args_parser():
@@ -17,6 +17,7 @@ def args_parser():
     parser.add_argument('-n', '--host', type=str, help='Single Host (in ssh_config).', required=False)
     parser.add_argument('-l', '--hostlist', type=str, help='Path to file with list of Hosts.', required=False)
     parser.add_argument('-p', '--path', type=str, help='Path to backups.', required=True)
+    parser.add_argument('-t', '--lifetime', type=int, help='Files (backup) lifetime (in days).', required=False)
     arguments = parser.parse_args().__dict__
     return arguments
 
@@ -31,6 +32,7 @@ def hosts_to_devices(hosts):
                 ssh_config_file=ssh_config_file,
                 host=hostname,
                 path_to_backups=args_in['path'],
+                lifetime=args_in['lifetime']
             )
             devices.append(host_device)
     return devices
@@ -38,11 +40,12 @@ def hosts_to_devices(hosts):
 
 class Backuper(Thread):
 
-    def __init__(self, host, path_to_backups, ssh_config_file, *args, **kwargs):
+    def __init__(self, host, path_to_backups, ssh_config_file, lifetime, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.path_to_backups = path_to_backups
         self.mikrotik_router = generate_device(ssh_config_file, host)
         self.connect = ConnectHandler(**self.mikrotik_router)
+        self.lifetime = lifetime
         self.subdir = 'backup'
         self.delay = 1
 
@@ -57,6 +60,8 @@ class Backuper(Thread):
             self.download_backup(backup_type, backup_name, path_to_backup)
             self.remove_backup_from_device(backup_type, backup_name)
         self.connect.disconnect()
+        if self.lifetime:
+            remove_old_files(path_to_backup, self.lifetime)
 
     def generate_identity(self):
         command = '/system identity print'

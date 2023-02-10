@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-
-
+import os
 import re
-from time import sleep
+from time import sleep, time
 from paramiko import SSHConfig
 
 
@@ -55,3 +54,16 @@ def print_output(device, command, delay=1, timeout=60):
         else:
             sleep(delay)
     return output
+
+
+def remove_old_files(path_to_dir, lifetime_days):
+    secs_in_day = 60 * 60 * 24
+    lifetime = lifetime_days * secs_in_day
+    filenames = os.listdir(path_to_dir)
+    timestamp_now = time()
+    for file_name in filenames:
+        file_path = os.path.join(path_to_dir, file_name)
+        file_mtime = os.stat(file_path).st_mtime
+        diff_time = timestamp_now - file_mtime
+        if diff_time > lifetime:
+            os.remove(file_path)
