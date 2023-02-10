@@ -1,0 +1,20 @@
+Host Mikrotik_1
+    HostName 192.168.0.1
+    Port 22
+    User sshbackup
+    IdentitiesOnly yes
+    IdentityFile ~/.ssh/authorized_keys/mikrotik_1_rsa
+
+Host Mikrotik_2
+    HostName 172.16.0.1
+    Port 22
+    User sshbackup
+    IdentitiesOnly yes
+    IdentityFile ~/.ssh/authorized_keys/mikrotik_2_rsa
+
+Host Mikrotik_3
+    HostName 10.0.0.1
+    Port 22
+    User sshbackup
+    IdentitiesOnly yes
+    IdentityFile ~/.ssh/authorized_keys/mikrotik_3_rsa
