@@ -8,7 +8,7 @@ from datetime import datetime
 from argparse import ArgumentParser
 from os import path, mkdir, environ
 from netmiko import ConnectHandler, file_transfer
-from mikrotik_utils import generate_device, allowed_filename
+from mikrotik_utils import generate_device, allowed_filename, print_output
 
 
 def args_parser():
@@ -59,7 +59,8 @@ class Backuper(Thread):
         self.connect.disconnect()
 
     def generate_identity(self):
-        identity = self.connect.send_command('/system identity print')
+        command = '/system identity print'
+        identity = print_output(self.connect, command, self.delay)
         identity_name = re.match(r'^name: (.*)$', identity).group(1)
         allowed_identity_name = allowed_filename(identity_name)
         return allowed_identity_name
@@ -69,15 +70,17 @@ class Backuper(Thread):
             mkdir(path_to_backup)
         except FileExistsError:
             pass
-        backup_dir = self.connect.send_command(f'/file print detail where name={self.subdir}')
+        command = f'/file print detail where name={self.subdir}'
+        backup_dir = print_output(self.connect, command, self.delay)
         if not backup_dir:
             # Crutch for create directory
             self.connect.send_command(f'/ip smb shares add directory={self.subdir} name=crutch_for_dir')
             self.connect.send_command('/ip smb shares remove [/ip smb shares find where name=crutch_for_dir]')
 
     def create_backup(self, backup_name):
-        self.connect.send_command(f'/export file="{self.subdir}/{backup_name}"')
-        self.connect.send_command(f'/system backup save dont-encrypt=yes name={self.subdir}/{backup_name}')
+        file_path_name = f'{self.subdir}/{backup_name}'
+        self.connect.send_command(f'/export file={file_path_name}')
+        self.connect.send_command(f'/system backup save dont-encrypt=yes name={file_path_name}')
         # Wait for files creation
         sleep(self.delay)
 

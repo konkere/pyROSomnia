@@ -3,6 +3,7 @@
 
 
 import re
+from time import sleep
 from paramiko import SSHConfig
 
 
@@ -43,3 +44,14 @@ def allowed_filename(filename):
     allowed_pattern = re.compile('[^A-z0-9!@#$%^&-]')
     allowed_name = re.sub(allowed_pattern, '_', filename)
     return allowed_name
+
+
+def print_output(device, command, delay=1, timeout=60):
+    output = None
+    for iteration in range(timeout):
+        output = device.send_command(command, read_timeout=float(timeout))
+        if output:
+            return output
+        else:
+            sleep(delay)
+    return output
