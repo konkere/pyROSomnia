@@ -6,9 +6,10 @@ from time import sleep
 from threading import Thread
 from datetime import datetime
 from argparse import ArgumentParser
-from os import path, mkdir, environ
+from os import path, mkdir, environ, stat
 from netmiko import ConnectHandler, file_transfer
-from mikrotik_utils import generate_device, allowed_filename, print_output, remove_old_files
+from related_utils import generate_device, allowed_filename, print_output, size_converter
+from related_utils import remove_old_files, generate_telegram_bot, markdownv2_converter
 
 
 def args_parser():
@@ -18,6 +19,8 @@ def args_parser():
     parser.add_argument('-l', '--hostlist', type=str, help='Path to file with list of Hosts.', required=False)
     parser.add_argument('-p', '--path', type=str, help='Path to backups.', required=True)
     parser.add_argument('-t', '--lifetime', type=int, help='Files (backup) lifetime (in days).', required=False)
+    parser.add_argument('-b', '--bottoken', type=str, help='Telegram Bot token.', required=False)
+    parser.add_argument('-c', '--chatid', type=str, help='Telegram chat id.', required=False)
     arguments = parser.parse_args().__dict__
     return arguments
 
@@ -38,6 +41,24 @@ def hosts_to_devices(hosts):
     return devices
 
 
+def summary_report(reports, lifetime):
+    many_hosts = len(reports) > 1
+    ending = {
+        True: 'ах',
+        False: 'е',
+    }
+    emoji_dead = '\U0001F480'       # 💀
+    message_header = f'Отчёт о проведении бэкапа настроек на Микротик{ending[many_hosts]}.\n\n'
+    message_body = ''
+    message_footer = ''
+    if lifetime:
+        message_footer += f'{emoji_dead}Также были удалены ранее сохранённые бэкапы старше {lifetime} дн.'
+    for report in reports:
+        message_body += f'{report}\n'
+    message = markdownv2_converter(message_header + message_body + message_footer)
+    return message
+
+
 class Backuper(Thread):
 
     def __init__(self, host, path_to_backups, ssh_config_file, lifetime, *args, **kwargs):
@@ -48,6 +69,13 @@ class Backuper(Thread):
         self.lifetime = lifetime
         self.subdir = 'backup'
         self.delay = 1
+        self.report = ''
+        self.emoji = {
+            'device':   '\U0001F4F6',       # 📶
+            'dir':      '\U0001F4C2',       # 📂
+            'ok':       '\U00002705',       # ✅
+            'not ok':   '\U0000274E',       # ❎
+        }
 
     def run(self):
         self.connect.enable()
@@ -56,6 +84,7 @@ class Backuper(Thread):
         backup_name = f'{identity}_{datetime.now().strftime("%Y.%m.%d_%H.%M.%S.%f")}'
         self.make_dirs(path_to_backup)
         self.create_backup(backup_name)
+        self.add_to_report(f'В каталоге {self.emoji["dir"]}{path_to_backup}/ сохранены файлы:')
         for backup_type in ['rsc', 'backup']:
             self.download_backup(backup_type, backup_name, path_to_backup)
             self.remove_backup_from_device(backup_type, backup_name)
@@ -63,10 +92,14 @@ class Backuper(Thread):
         if self.lifetime:
             remove_old_files(path_to_backup, self.lifetime)
 
+    def add_to_report(self, text, paragraph=False):
+        self.report += '\n' * paragraph + f'{text}\n'
+
     def generate_identity(self):
         command = '/system identity print'
         identity = print_output(self.connect, command, self.delay)
         identity_name = re.match(r'^name: (.*)$', identity).group(1)
+        self.add_to_report(f'{self.emoji["device"]}{identity_name}')
         allowed_identity_name = allowed_filename(identity_name)
         return allowed_identity_name
 
@@ -107,6 +140,14 @@ class Backuper(Thread):
             pass
         # Wait for file download
         sleep(self.delay)
+        try:
+            file_stats = stat(dst_file)
+        except FileNotFoundError:
+            file_info = f'{self.emoji["not ok"]}{src_file}'
+        else:
+            file_size = size_converter(file_stats.st_size)
+            file_info = f'{self.emoji["ok"]}{src_file} ➜ {file_size}'
+        self.add_to_report(file_info)
 
     def remove_backup_from_device(self, backup_type, backup_name):
         self.connect.send_command(f'/file remove {self.subdir}/{backup_name}.{backup_type}')
@@ -120,11 +161,18 @@ def main():
         hosts_list = [args_in['host']]
     else:
         exit(0)
+    telegram_bot = generate_telegram_bot(args_in['bottoken'], args_in['chatid'])
     devices_backup = hosts_to_devices(hosts_list)
     for device in devices_backup:
         device.start()
     for device in devices_backup:
         device.join()
+    if telegram_bot and telegram_bot.alive():
+        devices_reports = []
+        for device in devices_backup:
+            devices_reports.append(device.report)
+        report = summary_report(devices_reports, args_in['lifetime'])
+        telegram_bot.send_text_message(report)
 
 
 if __name__ == '__main__':

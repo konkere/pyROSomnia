@@ -6,7 +6,7 @@ import re
 from urllib import request
 from netmiko import ConnectHandler
 from argparse import ArgumentParser
-from mikrotik_utils import generate_device, lists_subtraction, generate_ip_pattern
+from related_utils import generate_device, lists_subtraction, generate_ip_pattern
 
 
 def args_parser():

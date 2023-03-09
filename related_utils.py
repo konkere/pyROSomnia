@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 import os
 import re
+from telebot import TeleBot
 from time import sleep, time
 from paramiko import SSHConfig
 
@@ -67,3 +68,57 @@ def remove_old_files(path_to_dir, lifetime_days):
         diff_time = timestamp_now - file_mtime
         if diff_time > lifetime:
             os.remove(file_path)
+
+
+def size_converter(size_bytes, decimal_places=2):
+    x_bytes = {
+        'GB': 1073741824,
+        'MB': 1048576,
+        'KB': 1024,
+        'B': 0,
+    }
+    x_bytes_sorted = sorted(x_bytes.items(), key=lambda x: x[1], reverse=True)
+    for (name, size_1) in x_bytes_sorted:
+        if size_bytes >= size_1:
+            size_round = round(size_bytes/size_1 if size_1 > 0 else size_bytes, decimal_places)
+            size_converted = f'{size_round} {name}'
+            return size_converted
+
+
+def generate_telegram_bot(bot_token, chat_id):
+    bot = None
+    if bot_token and chat_id:
+        bot = TlgrmBot(bot_token, chat_id)
+    return bot
+
+
+def markdownv2_converter(text):
+    symbols_for_replace = ['_', '*', '[', ']', '(', ')', '~', '`', '>', '#', '+', '-', '=', '|', '{', '}', '.', '!']
+    for symbol in symbols_for_replace:
+        text = text.replace(symbol, '\\' + symbol)
+    return text
+
+
+class TlgrmBot:
+
+    def __init__(self, bot_token, chat_id):
+        self.bot_token = bot_token
+        self.chat_id = chat_id
+        self.bot = TeleBot(self.bot_token)
+
+    def send_text_message(self, text):
+        message = self.bot.send_message(
+            chat_id=self.chat_id,
+            text=text,
+            parse_mode='MarkdownV2',
+            disable_web_page_preview=True,
+        )
+        return message.message_id
+
+    def alive(self):
+        try:
+            self.bot.get_me()
+        except Exception:
+            return False
+        else:
+            return True
