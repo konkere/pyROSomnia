@@ -7,7 +7,7 @@ from urllib import request
 from netmiko import ConnectHandler
 from argparse import ArgumentParser
 from related_utils import generate_device, lists_subtraction, generate_ip_pattern
-from related_utils import generate_telegram_bot, markdownv2_converter
+from related_utils import generate_telegram_bot, markdownv2_converter, print_output
 
 
 def args_parser():
@@ -67,7 +67,8 @@ class ListUpdater:
             self.ip_list_fresh.append(ip_addr)
 
     def generate_current_ip_list(self):
-        output = self.connect.send_command(f'/ip firewall address-list print where comment={self.label}')
+        command = f'/ip firewall address-list print where comment={self.label}'
+        output = print_output(self.connect, command)
         re_output = re.finditer(self.ip_pattern, output)
         for line in re_output:
             ip_addr = line.group(0).replace(' ', '')
@@ -83,7 +84,7 @@ class ListUpdater:
 
     def generate_identity(self):
         command = '/system identity print'
-        identity = self.connect.send_command(command)
+        identity = print_output(self.connect, command)
         identity_name = re.match(r'^name: (.*)$', identity).group(1)
         return identity_name
 

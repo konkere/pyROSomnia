@@ -46,14 +46,10 @@ def allowed_filename(filename):
     return allowed_name
 
 
-def print_output(device, command, delay=1, timeout=60):
-    output = None
-    for iteration in range(timeout):
-        output = device.send_command(command, read_timeout=float(timeout))
-        if output:
-            return output
-        else:
-            sleep(delay)
+def print_output(device, command, timeout=60):
+    output = device.send_command(command)
+    if not output:
+        output = device.send_command(command, expect_string=r'[\$#]', read_timeout=float(timeout))
     return output
 
 

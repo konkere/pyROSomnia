@@ -97,7 +97,7 @@ class Backuper(Thread):
 
     def generate_identity(self):
         command = '/system identity print'
-        identity = print_output(self.connect, command, self.delay)
+        identity = print_output(self.connect, command)
         identity_name = re.match(r'^name: (.*)$', identity).group(1)
         self.add_to_report(f'{self.emoji["device"]}{identity_name}')
         allowed_identity_name = allowed_filename(identity_name)
@@ -109,7 +109,7 @@ class Backuper(Thread):
         except FileExistsError:
             pass
         command = f'/file print detail where name={self.subdir}'
-        backup_dir = print_output(self.connect, command, self.delay)
+        backup_dir = print_output(self.connect, command)
         if not backup_dir:
             # Crutch for create directory
             self.connect.send_command(f'/ip smb shares add directory={self.subdir} name=crutch_for_dir')
