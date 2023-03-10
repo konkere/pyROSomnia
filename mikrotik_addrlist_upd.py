@@ -7,6 +7,7 @@ from urllib import request
 from netmiko import ConnectHandler
 from argparse import ArgumentParser
 from related_utils import generate_device, lists_subtraction, generate_ip_pattern
+from related_utils import generate_telegram_bot, markdownv2_converter
 
 
 def args_parser():
@@ -14,8 +15,10 @@ def args_parser():
     parser.add_argument('-s', '--sshconf', type=str, help='Path to ssh_config.', required=False)
     parser.add_argument('-n', '--host', type=str, help='Host (in ssh_config).', required=True)
     parser.add_argument('-u', '--url', type=str, help='URL to IP list.', required=True)
-    parser.add_argument('-l', '--list', type=str, help='Name of address list.', required=True)
-    parser.add_argument('-c', '--label', type=str, help='Comment as label of list.', required=True)
+    parser.add_argument('-i', '--list', type=str, help='Name of address list.', required=True)
+    parser.add_argument('-l', '--label', type=str, help='Comment as label in list.', required=True)
+    parser.add_argument('-b', '--bottoken', type=str, help='Telegram Bot token.', required=False)
+    parser.add_argument('-c', '--chatid', type=str, help='Telegram chat id.', required=False)
     arguments = parser.parse_args().__dict__
     return arguments
 
@@ -31,12 +34,21 @@ class ListUpdater:
         self.list_name = list_name
         self.label = label
         self.ip_pattern = generate_ip_pattern()
-        self.mikrotik_router = generate_device(ssh_config_file, host)
+        self.connect = ConnectHandler(**generate_device(ssh_config_file, host))
+        self.report = ''
+        self.emoji = {
+            'device':   '\U0001F4F6',       # 📶
+            'list':     '\U0001F4CB',       # 📋
+            'tag':      '\U0001F4CE',       # 📎
+        }
 
     def run(self):
+        self.connect.enable()
         self.generate_lists()
         if self.ip_list_add or self.ip_list_remove:
+            self.generate_report()
             self.update_ip_on_device()
+        self.connect.disconnect()
 
     def generate_lists(self):
         self.generate_fresh_ip_list()
@@ -55,25 +67,46 @@ class ListUpdater:
             self.ip_list_fresh.append(ip_addr)
 
     def generate_current_ip_list(self):
-        with ConnectHandler(**self.mikrotik_router) as device:
-            output = device.send_command(f'/ip firewall address-list print where comment="{self.label}"')
+        output = self.connect.send_command(f'/ip firewall address-list print where comment={self.label}')
         re_output = re.finditer(self.ip_pattern, output)
         for line in re_output:
             ip_addr = line.group(0).replace(' ', '')
             self.ip_list_current.append(ip_addr)
 
     def update_ip_on_device(self):
-        with ConnectHandler(**self.mikrotik_router) as device:
-            for ip_addr in self.ip_list_remove:
-                entry = f'/ip firewall address-list find address={ip_addr}'
-                device.send_command(f'/ip firewall address-list remove [{entry}]')
-            for ip_addr in self.ip_list_add:
-                entry = f'list={self.list_name} comment={self.label} address={ip_addr}'
-                device.send_command(f'/ip firewall address-list add {entry}')
+        for ip_addr in self.ip_list_remove:
+            entry = f'/ip firewall address-list find address={ip_addr}'
+            self.connect.send_command(f'/ip firewall address-list remove [{entry}]')
+        for ip_addr in self.ip_list_add:
+            entry = f'list={self.list_name} comment={self.label} address={ip_addr}'
+            self.connect.send_command(f'/ip firewall address-list add {entry}')
+
+    def generate_identity(self):
+        command = '/system identity print'
+        identity = self.connect.send_command(command)
+        identity_name = re.match(r'^name: (.*)$', identity).group(1)
+        return identity_name
+
+    def generate_report(self):
+        identity = markdownv2_converter(self.generate_identity())
+        list_name = markdownv2_converter(self.list_name)
+        label = markdownv2_converter(self.label)
+        self.report = f'Отчёт об изменении на {self.emoji["device"]}*{identity}*'
+        self.report += f' списка {self.emoji["list"]}__{list_name}__ с меткой {self.emoji["tag"]}\#{label}\n\n'
+        if self.ip_list_add:
+            self.report += f'Добавлено:```'
+            for ip_elem in self.ip_list_add:
+                self.report += f'\n{ip_elem}'
+            self.report += f'```\n'
+        if self.ip_list_remove:
+            self.report += f'Удалено:```'
+            for ip_elem in self.ip_list_remove:
+                self.report += f'\n{ip_elem}'
+            self.report += f'```\n'
 
 
-if __name__ == '__main__':
-    args = args_parser()
+def main(args):
+    telegram_bot = generate_telegram_bot(args_in['bottoken'], args_in['chatid'])
     list_upd = ListUpdater(
         ssh_config_file=args['sshconf'],
         host=args['host'],
@@ -81,5 +114,11 @@ if __name__ == '__main__':
         list_name=args['list'],
         label=args['label'],
     )
-
     list_upd.run()
+    if list_upd.report and telegram_bot and telegram_bot.alive():
+        telegram_bot.send_text_message(list_upd.report)
+
+
+if __name__ == '__main__':
+    args_in = args_parser()
+    main(args_in)
