@@ -55,7 +55,7 @@ def summary_report(reports, lifetime):
         message_footer += f'{emoji_dead}Также были удалены ранее сохранённые бэкапы старше {lifetime} дн.'
     for report in reports:
         message_body += f'{report}\n'
-    message = markdownv2_converter(message_header + message_body + message_footer)
+    message = markdownv2_converter(message_header) + message_body + markdownv2_converter(message_footer)
     return message
 
 
@@ -84,7 +84,7 @@ class Backuper(Thread):
         backup_name = f'{identity}_{datetime.now().strftime("%Y.%m.%d_%H.%M.%S.%f")}'
         self.make_dirs(path_to_backup)
         self.create_backup(backup_name)
-        self.add_to_report(f'В каталоге {self.emoji["dir"]}{path_to_backup}/ сохранены файлы:')
+        self.add_to_report(f'В каталоге {self.emoji["dir"]}`{markdownv2_converter(path_to_backup)}/` сохранены файлы:')
         for backup_type in ['rsc', 'backup']:
             self.download_backup(backup_type, backup_name, path_to_backup)
             self.remove_backup_from_device(backup_type, backup_name)
@@ -99,7 +99,7 @@ class Backuper(Thread):
         command = '/system identity print'
         identity = print_output(self.connect, command)
         identity_name = re.match(r'^name: (.*)$', identity).group(1)
-        self.add_to_report(f'{self.emoji["device"]}{identity_name}')
+        self.add_to_report(f'{self.emoji["device"]}*{markdownv2_converter(identity_name)}*')
         allowed_identity_name = allowed_filename(identity_name)
         return allowed_identity_name
 
@@ -140,13 +140,15 @@ class Backuper(Thread):
             pass
         # Wait for file download
         sleep(self.delay)
+        file_name = markdownv2_converter(src_file)
         try:
             file_stats = stat(dst_file)
         except FileNotFoundError:
-            file_info = f'{self.emoji["not ok"]}{src_file}'
+            file_info = f'{self.emoji["not ok"]}{file_name}'
         else:
-            file_size = size_converter(file_stats.st_size)
-            file_info = f'{self.emoji["ok"]}{src_file} ➜ {file_size}'
+            file_size = markdownv2_converter(size_converter(file_stats.st_size))
+            file_name = markdownv2_converter(src_file)
+            file_info = f'{self.emoji["ok"]}{file_name} ➜ {file_size}'
         self.add_to_report(file_info)
 
     def remove_backup_from_device(self, backup_type, backup_name):

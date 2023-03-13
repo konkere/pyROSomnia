@@ -46,10 +46,12 @@ def allowed_filename(filename):
     return allowed_name
 
 
-def print_output(device, command, timeout=60):
+def print_output(device, command, delay=1, timeout=60):
     output = device.send_command(command)
+    sleep(delay)
     if not output:
         output = device.send_command(command, expect_string=r'[\$#]', read_timeout=float(timeout))
+        sleep(delay)
     return output
 
 
@@ -66,7 +68,7 @@ def remove_old_files(path_to_dir, lifetime_days):
             os.remove(file_path)
 
 
-def size_converter(size_bytes, decimal_places=2):
+def size_converter(size_bytes, decimal_places=2, divide=False):
     x_bytes = {
         'GB': 1073741824,
         'MB': 1048576,
@@ -77,7 +79,7 @@ def size_converter(size_bytes, decimal_places=2):
     for (name, size_1) in x_bytes_sorted:
         if size_bytes >= size_1:
             size_round = round(size_bytes/size_1 if size_1 > 0 else size_bytes, decimal_places)
-            size_converted = f'{size_round} {name}'
+            size_converted = f'{size_round}' + ' ' * divide + f'{name}'
             return size_converted
 
 
