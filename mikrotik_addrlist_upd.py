@@ -95,12 +95,12 @@ class ListUpdater:
         self.report = f'Отчёт об изменении на {self.emoji["device"]}*{identity}*'
         self.report += f' списка {self.emoji["list"]}__{list_name}__ с меткой {self.emoji["tag"]}\#{label}\n\n'
         if self.ip_list_add:
-            self.report += f'Добавлено:```'
+            self.report += f'Добавлено:\n```'
             for ip_elem in self.ip_list_add:
                 self.report += f'\n{ip_elem}'
             self.report += f'```\n'
         if self.ip_list_remove:
-            self.report += f'Удалено:```'
+            self.report += f'Удалено:\n```'
             for ip_elem in self.ip_list_remove:
                 self.report += f'\n{ip_elem}'
             self.report += f'```\n'
