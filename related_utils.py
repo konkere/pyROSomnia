@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+
 import os
 import re
+import ipaddress
 from telebot import TeleBot
 from time import sleep, time
 from paramiko import SSHConfig
@@ -32,12 +34,36 @@ def lists_subtraction(list_minuend, list_subtrahend):
     return list_difference
 
 
-def generate_ip_pattern():
+def ip_pattern():
     ip_b = r'(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)'
-    mask = r'(\/([1-3][0-9]|[1-9]))?'
+    mask = r'(\/([1-9][0-9]|[0-9]))?'
     dot = r'\.'
     re_pattern = (ip_b + dot) * 3 + ip_b + mask
     return re_pattern
+
+
+def ips_from_data(data):
+    ips = []
+    pattern = ip_pattern()
+    re_data = re.finditer(pattern, data)
+    for elem in re_data:
+        addr_or_net = elem.group(0)
+        addr_or_net_valid = validate_ip(addr_or_net)
+        if addr_or_net_valid:
+            ips.append(addr_or_net)
+    return ips
+
+
+def validate_ip(ip):
+    valid = True
+    try:
+        addr_or_net = ipaddress.ip_network(ip)
+    except ValueError:
+        valid = False
+    else:
+        if not addr_or_net.is_global:
+            valid = False
+    return valid
 
 
 def allowed_filename(filename):
@@ -104,12 +130,12 @@ class TlgrmBot:
         self.chat_id = chat_id
         self.bot = TeleBot(self.bot_token)
 
-    def send_text_message(self, text):
+    def send_text_message(self, text, disable_web_page_preview=True, parse_mode='MarkdownV2'):
         message = self.bot.send_message(
             chat_id=self.chat_id,
             text=text,
-            parse_mode='MarkdownV2',
-            disable_web_page_preview=True,
+            parse_mode=parse_mode,
+            disable_web_page_preview=disable_web_page_preview,
         )
         return message.message_id
 

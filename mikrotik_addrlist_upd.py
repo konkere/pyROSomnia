@@ -1,12 +1,11 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-
 import re
 from urllib import request
 from netmiko import ConnectHandler
 from argparse import ArgumentParser
-from related_utils import generate_device, lists_subtraction, generate_ip_pattern
+from related_utils import generate_device, lists_subtraction, ips_from_data
 from related_utils import generate_telegram_bot, markdownv2_converter, print_output
 
 
@@ -33,7 +32,6 @@ class ListUpdater:
         self.ip_list_url = ip_list_url
         self.list_name = list_name
         self.label = label
-        self.ip_pattern = generate_ip_pattern()
         self.connect = ConnectHandler(**generate_device(ssh_config_file, host))
         self.report = ''
         self.emoji = {
@@ -59,20 +57,16 @@ class ListUpdater:
     def generate_fresh_ip_list(self):
         data_list = request.urlopen(self.ip_list_url)
         content = data_list.read().decode(data_list.headers.get_content_charset('UTF-8'))
-        if not content:
+        if content:
+            self.ip_list_fresh = ips_from_data(content)
+        else:
             exit(0)
-        re_output = re.finditer(self.ip_pattern, content)
-        for line in re_output:
-            ip_addr = line.group(0)
-            self.ip_list_fresh.append(ip_addr)
 
     def generate_current_ip_list(self):
         command = f'/ip firewall address-list print where comment={self.label}'
         output = print_output(self.connect, command)
-        re_output = re.finditer(self.ip_pattern, output)
-        for line in re_output:
-            ip_addr = line.group(0).replace(' ', '')
-            self.ip_list_current.append(ip_addr)
+        if output:
+            self.ip_list_current = ips_from_data(output)
 
     def update_ip_on_device(self):
         for ip_addr in self.ip_list_remove:
@@ -82,14 +76,14 @@ class ListUpdater:
             entry = f'list={self.list_name} comment={self.label} address={ip_addr}'
             self.connect.send_command(f'/ip firewall address-list add {entry}')
 
-    def generate_identity(self):
+    def get_identity(self):
         command = '/system identity print'
         identity = print_output(self.connect, command)
         identity_name = re.match(r'^name: (.*)$', identity).group(1)
         return identity_name
 
     def generate_report(self):
-        identity = markdownv2_converter(self.generate_identity())
+        identity = markdownv2_converter(self.get_identity())
         list_name = markdownv2_converter(self.list_name)
         label = markdownv2_converter(self.label)
         self.report = f'Отчёт об изменении на {self.emoji["device"]}*{identity}*'
