@@ -3,6 +3,7 @@
 
 import re
 from urllib import request
+from os import path, environ
 from netmiko import ConnectHandler
 from argparse import ArgumentParser
 from related_utils import generate_device, lists_subtraction, ips_from_data
@@ -24,7 +25,7 @@ def args_parser():
 
 class ListUpdater:
 
-    def __init__(self, host, ip_list_url, list_name, label, ssh_config_file='~/.ssh/config'):
+    def __init__(self, host, ip_list_url, list_name, label, ssh_config_file):
         self.ip_list_fresh = []
         self.ip_list_current = []
         self.ip_list_add = []
@@ -102,8 +103,9 @@ class ListUpdater:
 
 def main(args):
     telegram_bot = generate_telegram_bot(args_in['bottoken'], args_in['chatid'])
+    ssh_config_file = args['sshconf'] if args['sshconf'] else path.join(environ.get('HOME'), '.ssh/config')
     list_upd = ListUpdater(
-        ssh_config_file=args['sshconf'],
+        ssh_config_file=ssh_config_file,
         host=args['host'],
         ip_list_url=args['url'],
         list_name=args['list'],
