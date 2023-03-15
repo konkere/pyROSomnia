@@ -63,7 +63,7 @@ class ListUpdater:
             exit(0)
         re_output = re.finditer(self.ip_pattern, content)
         for line in re_output:
-            ip_addr = line.group(0).replace('\n', '').replace('"', '')
+            ip_addr = line.group(0)
             self.ip_list_fresh.append(ip_addr)
 
     def generate_current_ip_list(self):
