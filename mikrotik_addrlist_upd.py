@@ -2,10 +2,10 @@
 # -*- coding: utf-8 -*-
 
 import re
-from urllib import request
 from os import path, environ
 from netmiko import ConnectHandler
 from argparse import ArgumentParser
+from urllib.request import Request, urlopen
 from related_utils import generate_device, lists_subtraction, ips_from_data
 from related_utils import generate_telegram_bot, markdownv2_converter, print_output
 
@@ -56,7 +56,8 @@ class ListUpdater:
         self.ip_list_remove = lists_subtraction(self.ip_list_current, self.ip_list_fresh)
 
     def generate_fresh_ip_list(self):
-        data_list = request.urlopen(self.ip_list_url)
+        headers = {'User-Agent': 'Mozilla/5.0'}
+        data_list = urlopen(Request(self.ip_list_url, headers=headers))
         content = data_list.read().decode(data_list.headers.get_content_charset('UTF-8'))
         if content:
             self.ip_list_fresh = ips_from_data(content)
