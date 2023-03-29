@@ -2,19 +2,20 @@
 # -*- coding: utf-8 -*-
 
 import re
+from sys import exit
 from os import path, environ
 from netmiko import ConnectHandler
 from argparse import ArgumentParser
 from urllib.request import Request, urlopen
-from related_utils import generate_device, lists_subtraction, ips_from_data
 from related_utils import generate_telegram_bot, markdownv2_converter, print_output
+from related_utils import generate_device, lists_subtraction, ips_from_data, ips_from_asn
 
 
 def args_parser():
     parser = ArgumentParser(description='RouterOS list updater.')
     parser.add_argument('-s', '--sshconf', type=str, help='Path to ssh_config.', required=False)
     parser.add_argument('-n', '--host', type=str, help='Host (in ssh_config).', required=True)
-    parser.add_argument('-u', '--url', type=str, help='URL to IP list.', required=True)
+    parser.add_argument('-u', '--url', type=str, help='URL to IP list or ASN (format: AS000000).', required=True)
     parser.add_argument('-i', '--list', type=str, help='Name of address list.', required=True)
     parser.add_argument('-l', '--label', type=str, help='Comment as label in list.', required=True)
     parser.add_argument('-b', '--bottoken', type=str, help='Telegram Bot token.', required=False)
@@ -26,15 +27,16 @@ def args_parser():
 class ListUpdater:
 
     def __init__(self, host, ip_list_url, list_name, label, ssh_config_file):
-        self.ip_list_fresh = []
-        self.ip_list_current = []
-        self.ip_list_add = []
-        self.ip_list_remove = []
-        self.ip_list_url = ip_list_url
-        self.list_name = list_name
-        self.label = label
-        self.connect = ConnectHandler(**generate_device(ssh_config_file, host))
         self.report = ''
+        self.ip_list_add = []
+        self.ip_list_fresh = []
+        self.ip_list_remove = []
+        self.ip_list_current = []
+        self.label = label
+        self.list_name = list_name
+        self.ip_list_url = ip_list_url
+        self.asn_pattern = r'^[Aa][Ss][1-9]\d{0,9}$'
+        self.connect = ConnectHandler(**generate_device(ssh_config_file, host))
         self.emoji = {
             'device':   '\U0001F4F6',       # 📶
             'list':     '\U0001F4CB',       # 📋
@@ -56,13 +58,18 @@ class ListUpdater:
         self.ip_list_remove = lists_subtraction(self.ip_list_current, self.ip_list_fresh)
 
     def generate_fresh_ip_list(self):
-        headers = {'User-Agent': 'Mozilla/5.0'}
-        data_list = urlopen(Request(self.ip_list_url, headers=headers))
-        content = data_list.read().decode(data_list.headers.get_content_charset('UTF-8'))
-        if content:
-            self.ip_list_fresh = ips_from_data(content)
+        try:
+            re_asn = re.match(self.asn_pattern, self.ip_list_url).group(0)
+        except AttributeError:
+            headers = {'User-Agent': 'Mozilla/5.0'}
+            data_list = urlopen(Request(self.ip_list_url, headers=headers))
+            content = data_list.read().decode(data_list.headers.get_content_charset('UTF-8'))
+            if content:
+                self.ip_list_fresh = ips_from_data(content)
         else:
-            exit(0)
+            self.ip_list_fresh = ips_from_asn(re_asn)
+        if not self.ip_list_fresh:
+            exit('Source list is empty.')
 
     def generate_current_ip_list(self):
         command = f'/ip firewall address-list print where comment={self.label}'

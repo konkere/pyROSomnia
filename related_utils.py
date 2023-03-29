@@ -4,9 +4,11 @@
 import os
 import re
 import ipaddress
+from ipwhois.net import Net
 from telebot import TeleBot
 from time import sleep, time
 from paramiko import SSHConfig
+from ipwhois.asn import ASNOrigin
 
 
 def generate_device(ssh_config_file, host):
@@ -42,6 +44,13 @@ def ip_pattern():
     return re_pattern
 
 
+def collapse_ips(ips):
+    ip_nets = [ipaddress.ip_network(ip) for ip in ips]
+    cidr = ipaddress.collapse_addresses(ip_nets)
+    ip_nets_collapsed = [ip.__str__().replace('/32', '') for ip in cidr]
+    return ip_nets_collapsed
+
+
 def ips_from_data(data):
     ips = []
     pattern = ip_pattern()
@@ -51,6 +60,22 @@ def ips_from_data(data):
         addr_or_net_valid = validate_ip(addr_or_net)
         if addr_or_net_valid:
             ips.append(addr_or_net)
+    ips = collapse_ips(ips)
+    return ips
+
+
+def ips_from_asn(asn):
+    ips = []
+    asn = asn.upper()
+    pattern = ip_pattern()
+    net = Net('9.9.9.9')
+    asn_obj = ASNOrigin(net)
+    results = asn_obj.lookup(asn=asn)
+    for elem in results['nets']:
+        ip_check = elem['cidr']
+        if validate_ip(ip_check) and re.match(pattern, ip_check) and 'Proxy-registered' not in elem['description']:
+            ips.append(ip_check)
+    ips = collapse_ips(ips)
     return ips
 
 
