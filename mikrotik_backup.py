@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import re
+from sys import exit
 from time import sleep
 from threading import Thread
 from datetime import datetime
@@ -81,7 +82,7 @@ class Backuper(Thread):
         self.connect.enable()
         identity = self.generate_identity()
         path_to_backup = path.join(self.path_to_backups, identity)
-        backup_name = f'{identity}_{datetime.now().strftime("%Y.%m.%d_%H.%M.%S.%f")}'
+        backup_name = f'{identity}_{datetime.now().strftime("%Y.%m.%d_%H.%M.%S")}'
         self.make_dirs(path_to_backup)
         self.create_backup(backup_name)
         self.add_to_report(f'В каталоге {self.emoji["dir"]}`{markdownv2_converter(path_to_backup)}/` сохранены файлы:')
