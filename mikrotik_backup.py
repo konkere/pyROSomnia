@@ -16,7 +16,8 @@ from related_utils import remove_old_files, generate_telegram_bot, markdownv2_co
 def args_parser():
     parser = ArgumentParser(description='RouterOS backuper.')
     parser.add_argument('-s', '--sshconf', type=str, help='Path to ssh_config.', required=False)
-    parser.add_argument('-n', '--host', type=str, help='Single Host (in ssh_config).', required=False)
+    parser.add_argument('-n', '--hosts', type=str, help='Comma separated hosts or single host (in ssh_config).',
+                        required=False)
     parser.add_argument('-l', '--hostlist', type=str, help='Path to file with list of Hosts.', required=False)
     parser.add_argument('-p', '--path', type=str, help='Path to backups.', required=True)
     parser.add_argument('-t', '--lifetime', type=int, help='Files (backup) lifetime (in days).', required=False)
@@ -157,13 +158,14 @@ class Backuper(Thread):
 
 
 def main():
-    if args_in['hostlist']:
-        with open(args_in['hostlist']) as file:
-            hosts_list = file.readlines()
-    elif args_in['host']:
-        hosts_list = [args_in['host']]
-    else:
-        exit(0)
+    match args_in['hostlist'], args_in['hosts']:
+        case str() as hostlist, None:
+            with open(hostlist) as file:
+                hosts_list = file.read().splitlines()
+        case None, str() as hosts:
+            hosts_list = hosts.split(",")
+        case hostlist, hosts:
+            exit(f'What needs to be used: {hostlist} or {hosts}?')
     telegram_bot = generate_telegram_bot(args_in['bottoken'], args_in['chatid'])
     devices_backup = hosts_to_devices(hosts_list)
     for device in devices_backup:
