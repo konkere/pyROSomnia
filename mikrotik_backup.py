@@ -18,7 +18,7 @@ def args_parser():
     parser.add_argument('-s', '--sshconf', type=str, help='Path to ssh_config.', required=False)
     parser.add_argument('-n', '--hosts', type=str, help='Comma separated hosts or single host (in ssh_config).',
                         required=False)
-    parser.add_argument('-l', '--hostlist', type=str, help='Path to file with list of Hosts.', required=False)
+    parser.add_argument('-f', '--hostfile', type=str, help='Path to file with list of Hosts.', required=False)
     parser.add_argument('-p', '--path', type=str, help='Path to backups.', required=True)
     parser.add_argument('-t', '--lifetime', type=int, help='Files (backup) lifetime (in days).', required=False)
     parser.add_argument('-b', '--bottoken', type=str, help='Telegram Bot token.', required=False)
@@ -158,16 +158,16 @@ class Backuper(Thread):
 
 
 def main():
-    match args_in['hostlist'], args_in['hosts']:
-        case str() as hostlist, None:
-            with open(hostlist) as file:
-                hosts_list = file.read().splitlines()
-        case None, str() as hosts:
-            hosts_list = hosts.split(",")
-        case hostlist, hosts:
-            exit(f'What needs to be used: {hostlist} or {hosts}?')
+    match args_in['hostfile'], args_in['hosts']:
+        case str() as file, None:
+            with open(file):
+                hosts = file.read().splitlines()
+        case None, str() as host:
+            hosts = host.split(',')
+        case file, host:
+            exit(f'What needs to be used: {file} or {host}?')
     telegram_bot = generate_telegram_bot(args_in['bottoken'], args_in['chatid'])
-    devices_backup = hosts_to_devices(hosts_list)
+    devices_backup = hosts_to_devices(hosts)
     for device in devices_backup:
         device.start()
     for device in devices_backup:
