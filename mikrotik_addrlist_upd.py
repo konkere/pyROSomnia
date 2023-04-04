@@ -7,15 +7,16 @@ from os import path, environ
 from netmiko import ConnectHandler
 from argparse import ArgumentParser
 from urllib.request import Request, urlopen
-from related_utils import generate_telegram_bot, markdownv2_converter, print_output
-from related_utils import generate_device, lists_subtraction, ips_from_data, ips_from_asn
+from related_utils import lists_subtraction, ips_from_data, ips_from_asn, collapse_ips
+from related_utils import generate_device, generate_telegram_bot, markdownv2_converter, print_output
 
 
 def args_parser():
     parser = ArgumentParser(description='RouterOS list updater.')
     parser.add_argument('-s', '--sshconf', type=str, help='Path to ssh_config.', required=False)
     parser.add_argument('-n', '--host', type=str, help='Host (in ssh_config).', required=True)
-    parser.add_argument('-u', '--url', type=str, help='URL to IP list or ASN (format: AS000000).', required=True)
+    parser.add_argument('-u', '--url', type=str,
+                        help='URL to IP list or ASN (format: AS000000 or AS000000,AS000000).', required=True)
     parser.add_argument('-i', '--list', type=str, help='Name of address list.', required=True)
     parser.add_argument('-l', '--label', type=str, help='Comment as label in list.', required=True)
     parser.add_argument('-b', '--bottoken', type=str, help='Telegram Bot token.', required=False)
@@ -35,7 +36,7 @@ class ListUpdater:
         self.label = label
         self.list_name = list_name
         self.ip_list_url = ip_list_url
-        self.asn_pattern = r'^[Aa][Ss][1-9]\d{0,9}$'
+        self.asn_pattern = r'[Aa][Ss][1-9]\d{0,9}'
         self.connect = ConnectHandler(**generate_device(ssh_config_file, host))
         self.emoji = {
             'device':   '\U0001F4F6',       # 📶
@@ -59,7 +60,7 @@ class ListUpdater:
 
     def generate_fresh_ip_list(self):
         try:
-            re_asn = re.match(self.asn_pattern, self.ip_list_url).group(0)
+            re_asn = re.findall(self.asn_pattern, self.ip_list_url)
         except AttributeError:
             headers = {'User-Agent': 'Mozilla/5.0'}
             data_list = urlopen(Request(self.ip_list_url, headers=headers))
@@ -67,7 +68,10 @@ class ListUpdater:
             if content:
                 self.ip_list_fresh = ips_from_data(content)
         else:
-            self.ip_list_fresh = ips_from_asn(re_asn)
+            ip_list = []
+            for asn_single in re_asn:
+                ip_list += ips_from_asn(asn_single, collapse=False)
+            self.ip_list_fresh = collapse_ips(ip_list)
         if not self.ip_list_fresh:
             exit('Source list is empty.')
 

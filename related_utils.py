@@ -64,7 +64,7 @@ def ips_from_data(data):
     return ips
 
 
-def ips_from_asn(asn):
+def ips_from_asn(asn, collapse=True):
     ips = []
     asn = asn.upper()
     pattern = ip_pattern()
@@ -79,7 +79,8 @@ def ips_from_asn(asn):
             proxy_registered = False
         if validate_ip(ip_check) and re.match(pattern, ip_check) and not proxy_registered:
             ips.append(ip_check)
-    ips = collapse_ips(ips)
+    if collapse:
+        ips = collapse_ips(ips)
     return ips
 
 
