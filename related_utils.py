@@ -73,7 +73,11 @@ def ips_from_asn(asn):
     results = asn_obj.lookup(asn=asn)
     for elem in results['nets']:
         ip_check = elem['cidr']
-        if validate_ip(ip_check) and re.match(pattern, ip_check) and 'Proxy-registered' not in elem['description']:
+        try:
+            proxy_registered = 'Proxy-registered' in elem['description']
+        except TypeError:
+            proxy_registered = False
+        if validate_ip(ip_check) and re.match(pattern, ip_check) and not proxy_registered:
             ips.append(ip_check)
     ips = collapse_ips(ips)
     return ips
