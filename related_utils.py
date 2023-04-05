@@ -106,7 +106,7 @@ def print_output(device, command, delay=1, timeout=60):
     output = device.send_command(command)
     sleep(delay)
     if not output:
-        output = device.send_command(command, expect_string=r'[\$#]', read_timeout=float(timeout))
+        output = device.send_command(command, expect_string=r'[\$#>]', read_timeout=float(timeout))
         sleep(delay)
     return output
 

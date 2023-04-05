@@ -159,8 +159,8 @@ class Backuper(Thread):
 
 def main():
     match args_in['hostfile'], args_in['hosts']:
-        case str() as file, None:
-            with open(file):
+        case str() as path_to_file, None:
+            with open(path_to_file) as file:
                 hosts = file.read().splitlines()
         case None, str() as host:
             hosts = host.split(',')
