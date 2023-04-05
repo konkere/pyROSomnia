@@ -76,7 +76,7 @@ class Backuper(Thread):
             'device':   '\U0001F4F6',       # 📶
             'dir':      '\U0001F4C2',       # 📂
             'ok':       '\U00002705',       # ✅
-            'not ok':   '\U0000274E',       # ❎
+            'not ok':   '\U0000274C',       # ❌
         }
 
     def run(self):
@@ -146,7 +146,7 @@ class Backuper(Thread):
         try:
             file_stats = stat(dst_file)
         except FileNotFoundError:
-            file_info = f'{self.emoji["not ok"]}{file_name}'
+            file_info = f'{self.emoji["not ok"]}`{file_name}`'
         else:
             file_size = markdownv2_converter(size_converter(file_stats.st_size))
             file_name = markdownv2_converter(src_file)
