@@ -150,7 +150,7 @@ class Backuper(Thread):
         else:
             file_size = markdownv2_converter(size_converter(file_stats.st_size))
             file_name = markdownv2_converter(src_file)
-            file_info = f'{self.emoji["ok"]}{file_name} ➜ {file_size}'
+            file_info = f'{self.emoji["ok"]}`{file_name}` ➜ {file_size}'
         self.add_to_report(file_info)
 
     def remove_backup_from_device(self, backup_type, backup_name):
