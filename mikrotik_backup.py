@@ -146,8 +146,9 @@ class Backuper(Thread):
                 direction=direction,
                 overwrite_file=True,
             )
+        # ValueError
         # Bug in scp_handler.py → https://github.com/ktbyers/netmiko/issues/2818 (fixed only in develop branch)
-        except ValueError:
+        except (ValueError, TimeoutError):
             pass
         # Wait for file download
         sleep(self.delay)
