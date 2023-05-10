@@ -137,19 +137,15 @@ class Backuper(Thread):
         src_file = f'{backup_name}.{backup_type}'
         dst_file = f'{path_to_backup}/{backup_name}.{backup_type}'
         direction = 'get'
-        try:
-            transfer_dict = file_transfer(
-                self.connect,
-                source_file=src_file,
-                dest_file=dst_file,
-                file_system=self.subdir,
-                direction=direction,
-                overwrite_file=True,
-            )
-        # ValueError
-        # Bug in scp_handler.py → https://github.com/ktbyers/netmiko/issues/2818 (fixed only in develop branch)
-        except (ValueError, TimeoutError):
-            pass
+        transfer_dict = file_transfer(
+            self.connect,
+            source_file=src_file,
+            dest_file=dst_file,
+            file_system=self.subdir,
+            direction=direction,
+            overwrite_file=True,
+            disable_md5=True,
+        )
         # Wait for file download
         sleep(self.delay)
         file_name = markdownv2_converter(src_file)
