@@ -51,20 +51,21 @@ def collapse_ips(ips):
     return ip_nets_collapsed
 
 
-def ips_from_data(data):
+def ips_from_data(data, collapse=True, is_global=True):
     ips = []
     pattern = ip_pattern()
     re_data = re.finditer(pattern, data)
     for elem in re_data:
         addr_or_net = elem.group(0)
-        addr_or_net_valid = validate_ip(addr_or_net)
+        addr_or_net_valid = validate_ip(addr_or_net, is_global=is_global)
         if addr_or_net_valid:
             ips.append(addr_or_net)
-    ips = collapse_ips(ips)
+    if collapse:
+        ips = collapse_ips(ips)
     return ips
 
 
-def ips_from_asn(asn, collapse=True):
+def ips_from_asn(asn, collapse=True, is_global=True):
     ips = []
     asn = asn.upper()
     pattern = ip_pattern()
@@ -77,21 +78,21 @@ def ips_from_asn(asn, collapse=True):
             proxy_registered = 'Proxy-registered' in elem['description']
         except TypeError:
             proxy_registered = False
-        if validate_ip(ip_check) and re.match(pattern, ip_check) and not proxy_registered:
+        if validate_ip(ip_check, is_global=is_global) and re.match(pattern, ip_check) and not proxy_registered:
             ips.append(ip_check)
     if collapse:
         ips = collapse_ips(ips)
     return ips
 
 
-def validate_ip(ip):
+def validate_ip(ip, is_global=True):
     valid = True
     try:
         addr_or_net = ipaddress.ip_network(ip)
     except ValueError:
         valid = False
     else:
-        if not addr_or_net.is_global:
+        if is_global and not addr_or_net.is_global:
             valid = False
     return valid
 

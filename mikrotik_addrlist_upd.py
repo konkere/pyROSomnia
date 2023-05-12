@@ -16,13 +16,28 @@ def args_parser():
     parser.add_argument('-s', '--sshconf', type=str, help='Path to ssh_config.', required=False)
     parser.add_argument('-n', '--host', type=str, help='Host (in ssh_config).', required=True)
     parser.add_argument('-u', '--url', type=str,
-                        help='URL to IP list or ASN (format: AS000000 or AS000000,AS000000).', required=True)
+                        help='URLs or/and ASNs to IP list (comma separated).', required=True)
     parser.add_argument('-i', '--list', type=str, help='Name of address list.', required=True)
     parser.add_argument('-l', '--label', type=str, help='Comment as label in list.', required=True)
     parser.add_argument('-b', '--bottoken', type=str, help='Telegram Bot token.', required=False)
     parser.add_argument('-c', '--chatid', type=str, help='Telegram chat id.', required=False)
     arguments = parser.parse_args().__dict__
     return arguments
+
+
+def asns_and_urls(text, separator=','):
+    asns = []
+    urls = []
+    asn_pattern = r'^[Aa][Ss][1-9]\d{0,9}$'
+    slicing = text.split(separator)
+    for elem in slicing:
+        try:
+            re_asn = re.match(asn_pattern, elem).group(0)
+        except AttributeError:
+            urls.append(elem)
+        else:
+            asns.append(re_asn)
+    return asns, urls
 
 
 class ListUpdater:
@@ -59,20 +74,21 @@ class ListUpdater:
         self.ip_list_remove = lists_subtraction(self.ip_list_current, self.ip_list_fresh)
 
     def generate_fresh_ip_list(self):
-        try:
-            re_asn = re.findall(self.asn_pattern, self.ip_list_url)
-        except AttributeError:
-            headers = {'User-Agent': 'Mozilla/5.0'}
-            data_list = urlopen(Request(self.ip_list_url, headers=headers))
-            content = data_list.read().decode(data_list.headers.get_content_charset('UTF-8'))
-            if content:
-                self.ip_list_fresh = ips_from_data(content)
+        asns, urls = asns_and_urls(self.ip_list_url)
+        ip_list_all = []
+        headers = {'User-Agent': 'Mozilla/5.0'}
+        if asns:
+            for asn in asns:
+                ip_list_all += ips_from_asn(asn, collapse=False)
+        if urls:
+            for url in urls:
+                data_list = urlopen(Request(url, headers=headers))
+                content = data_list.read().decode(data_list.headers.get_content_charset('UTF-8'))
+                ip_list = ips_from_data(content, collapse=False)
+                ip_list_all += ip_list
+        if ip_list_all:
+            self.ip_list_fresh = collapse_ips(ip_list_all)
         else:
-            ip_list = []
-            for asn_single in re_asn:
-                ip_list += ips_from_asn(asn_single, collapse=False)
-            self.ip_list_fresh = collapse_ips(ip_list)
-        if not self.ip_list_fresh:
             exit('Source list is empty.')
 
     def generate_current_ip_list(self):
