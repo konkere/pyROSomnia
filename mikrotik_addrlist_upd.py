@@ -92,7 +92,7 @@ class ListUpdater:
             exit('Source list is empty.')
 
     def generate_current_ip_list(self):
-        command = f'/ip firewall address-list print where comment={self.label}'
+        command = f'/ip firewall address-list print without-paging where comment={self.label}'
         output = print_output(self.connect, command)
         if output:
             self.ip_list_current = ips_from_data(output)
