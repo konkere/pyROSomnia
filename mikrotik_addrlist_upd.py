@@ -7,8 +7,8 @@ from os import path, environ
 from netmiko import ConnectHandler
 from argparse import ArgumentParser
 from urllib.request import Request, urlopen
-from related_utils import lists_subtraction, ips_from_data, ips_from_asn, collapse_ips
-from related_utils import generate_device, generate_telegram_bot, markdownv2_converter, print_output
+from related_utils import lists_subtraction, ips_from_data, ips_from_asn, collapse_ips, print_output
+from related_utils import generate_device, generate_telegram_bot, markdownv2_converter, asns_and_urls
 
 
 def args_parser():
@@ -16,28 +16,13 @@ def args_parser():
     parser.add_argument('-s', '--sshconf', type=str, help='Path to ssh_config.', required=False)
     parser.add_argument('-n', '--host', type=str, help='Host (in ssh_config).', required=True)
     parser.add_argument('-u', '--url', type=str,
-                        help='URLs or/and ASNs to IP list (comma separated).', required=True)
+                        help='URLs or/and ASNs (comma separated) to IP list.', required=True)
     parser.add_argument('-i', '--list', type=str, help='Name of address list.', required=True)
     parser.add_argument('-l', '--label', type=str, help='Comment as label in list.', required=True)
     parser.add_argument('-b', '--bottoken', type=str, help='Telegram Bot token.', required=False)
     parser.add_argument('-c', '--chatid', type=str, help='Telegram chat id.', required=False)
     arguments = parser.parse_args().__dict__
     return arguments
-
-
-def asns_and_urls(text, separator=','):
-    asns = []
-    urls = []
-    asn_pattern = r'^[Aa][Ss][1-9]\d{0,9}$'
-    slicing = text.split(separator)
-    for elem in slicing:
-        try:
-            re_asn = re.match(asn_pattern, elem).group(0)
-        except AttributeError:
-            urls.append(elem)
-        else:
-            asns.append(re_asn)
-    return asns, urls
 
 
 class ListUpdater:

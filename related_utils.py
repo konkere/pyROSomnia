@@ -97,6 +97,21 @@ def validate_ip(ip, is_global=True):
     return valid
 
 
+def asns_and_urls(text, separator=','):
+    asns = []
+    urls = []
+    asn_pattern = r'^[Aa][Ss][1-9]\d{0,9}$'
+    slicing = text.split(separator)
+    for elem in slicing:
+        try:
+            re_asn = re.match(asn_pattern, elem).group(0)
+        except AttributeError:
+            urls.append(elem)
+        else:
+            asns.append(re_asn)
+    return asns, urls
+
+
 def allowed_filename(filename):
     allowed_pattern = re.compile('[^A-z0-9!@#$%^&-]')
     allowed_name = re.sub(allowed_pattern, '_', filename)
