@@ -128,8 +128,8 @@ class Backuper(Thread):
 
     def create_backup(self, backup_name):
         file_path_name = f'{self.subdir}/{backup_name}'
-        self.connect.send_command(f'/export file={file_path_name}')
-        self.connect.send_command(f'/system backup save dont-encrypt=yes name={file_path_name}')
+        self.connect.send_command(f'/export file={file_path_name}', read_timeout=240)
+        self.connect.send_command(f'/system backup save dont-encrypt=yes name={file_path_name}', read_timeout=240)
         # Wait for files creation
         sleep(self.delay)
 
