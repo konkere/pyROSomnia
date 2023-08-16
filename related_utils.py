@@ -27,6 +27,7 @@ def generate_device(ssh_config_file, host):
         'use_keys': True,
         'key_file': key,
         'disabled_algorithms': disabled_algorithms,
+        'global_cmd_verify': False,
     }
     return mikrotik_router
 
