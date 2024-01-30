@@ -6,12 +6,12 @@ from sys import exit
 from time import sleep
 from threading import Thread
 from datetime import datetime
+from netmiko import file_transfer
 from argparse import ArgumentParser
 from os import path, mkdir, environ, stat
-from netmiko import ConnectHandler, file_transfer
 from netmiko.exceptions import NetmikoTimeoutException
-from related_utils import generate_device, allowed_filename, print_output, size_converter
 from related_utils import remove_old_files, generate_telegram_bot, markdownv2_converter
+from related_utils import generate_connector, allowed_filename, print_output, size_converter
 
 
 def args_parser():
@@ -44,7 +44,6 @@ def hosts_to_devices(hosts):
             except (NetmikoTimeoutException, ValueError) as exc:
                 text = exc.__str__().replace('\n', ' ').replace('  ', ' ')
                 host_device = Failakuper(
-                    ssh_config_file=ssh_config_file,
                     host=hostname,
                     exc_text=text,
                 )
@@ -75,8 +74,9 @@ class Backuper(Thread):
     def __init__(self, host, path_to_backups, ssh_config_file, lifetime, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.path_to_backups = path_to_backups
-        self.mikrotik_router = generate_device(ssh_config_file, host)
-        self.connect = ConnectHandler(**self.mikrotik_router)
+        self.connect = generate_connector(
+            args={'sshconf': ssh_config_file, 'host': host},
+        )
         self.lifetime = lifetime
         self.subdir = 'backup'
         self.delay = 1
@@ -165,10 +165,10 @@ class Backuper(Thread):
 
 class Failakuper(Thread):
 
-    def __init__(self, host, ssh_config_file, exc_text, *args, **kwargs):
+    def __init__(self, host, exc_text, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.mikrotik_router = generate_device(ssh_config_file, host)
-        self.exc_text = exc_text
+        self.host = markdownv2_converter(host)
+        self.exc_text = markdownv2_converter(exc_text)
         self.report = ''
         self.emoji = {
             'device':   '\U0001F4F6',       # 📶
@@ -176,10 +176,8 @@ class Failakuper(Thread):
         }
 
     def run(self):
-        host = markdownv2_converter(self.mikrotik_router['host'])
-        error_text = markdownv2_converter(self.exc_text)
-        self.add_to_report(f'{self.emoji["device"]}*{host}*')
-        self.add_to_report(f'{self.emoji["not ok"]}`{error_text}`')
+        self.add_to_report(f'{self.emoji["device"]}*{self.host}*')
+        self.add_to_report(f'{self.emoji["not ok"]}`{self.exc_text}`')
 
     def add_to_report(self, text, paragraph=False):
         self.report += '\n' * paragraph + f'{text}\n'

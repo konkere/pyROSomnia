@@ -4,32 +4,51 @@
 import os
 import re
 import ipaddress
+import routeros_api
 from ipwhois.net import Net
 from telebot import TeleBot
 from time import sleep, time
 from paramiko import SSHConfig
 from ipwhois.asn import ASNOrigin
+from netmiko import ConnectHandler
 
 
-def generate_device(ssh_config_file, host):
-    disabled_algorithms = {'pubkeys': ['rsa-sha2-256', 'rsa-sha2-512']}
-    mkt_ssh_conf = SSHConfig()
-    mkt_ssh_conf.parse(open(ssh_config_file))
-    hostname = mkt_ssh_conf.lookup(host)['hostname']
-    key = mkt_ssh_conf.lookup(host)['identityfile'][0]
-    user = mkt_ssh_conf.lookup(host)['user']
-    port = mkt_ssh_conf.lookup(host)['port']
-    mikrotik_router = {
-        'device_type': 'mikrotik_routeros',
-        'host': hostname,
-        'port': port,
-        'username': user,
-        'use_keys': True,
-        'key_file': key,
-        'disabled_algorithms': disabled_algorithms,
-        'global_cmd_verify': False,
-    }
-    return mikrotik_router
+def generate_connector(args):
+    if args['sshconf']:
+        disabled_algorithms = {'pubkeys': ['rsa-sha2-256', 'rsa-sha2-512']}
+        mkt_ssh_conf = SSHConfig()
+        mkt_ssh_conf.parse(open(args['sshconf']))
+        hostname = mkt_ssh_conf.lookup(args['host'])['hostname']
+        key = mkt_ssh_conf.lookup(args['host'])['identityfile'][0]
+        user = mkt_ssh_conf.lookup(args['host'])['user']
+        port = mkt_ssh_conf.lookup(args['host'])['port']
+        device = {
+            'device_type': 'mikrotik_routeros',
+            'host': hostname,
+            'port': port,
+            'username': user,
+            'use_keys': True,
+            'key_file': key,
+            'disabled_algorithms': disabled_algorithms,
+            'global_cmd_verify': False,
+        }
+        connector = ConnectHandler(**device)
+    elif args['login'] and args['password']:
+        connection = routeros_api.RouterOsApiPool(
+            host=args['host'],
+            username=args['login'],
+            password=args['password'],
+            # port=8728,
+            plaintext_login=True,
+            use_ssl=False,
+            ssl_verify=True,
+            ssl_verify_hostname=True,
+            ssl_context=None,
+        )
+        connector = connection.get_api()
+    else:
+        connector = None
+    return connector
 
 
 def lists_subtraction(list_minuend, list_subtrahend):

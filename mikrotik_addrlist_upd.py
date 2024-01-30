@@ -3,18 +3,19 @@
 
 import re
 from sys import exit
-from os import path, environ
-from netmiko import ConnectHandler
 from argparse import ArgumentParser
 from urllib.request import Request, urlopen
 from related_utils import lists_subtraction, ips_from_data, ips_from_asn, collapse_ips, print_output
-from related_utils import generate_device, generate_telegram_bot, markdownv2_converter, asns_and_urls
+from related_utils import generate_connector, generate_telegram_bot, markdownv2_converter, asns_and_urls
 
 
 def args_parser():
     parser = ArgumentParser(description='RouterOS list updater.')
     parser.add_argument('-s', '--sshconf', type=str, help='Path to ssh_config.', required=False)
-    parser.add_argument('-n', '--host', type=str, help='Host (in ssh_config).', required=True)
+    parser.add_argument('-n', '--host', type=str,
+                        help='Host (in ssh_config or IP/URL for API).', required=True)
+    parser.add_argument('-a', '--login', type=str, help='API username for login.', required=False)
+    parser.add_argument('-p', '--password', type=str, help='API password for login.', required=False)
     parser.add_argument('-u', '--url', type=str,
                         help='URLs or/and ASNs (comma separated) to IP list.', required=True)
     parser.add_argument('-i', '--list', type=str, help='Name of address list.', required=True)
@@ -27,17 +28,17 @@ def args_parser():
 
 class ListUpdater:
 
-    def __init__(self, host, ip_list_url, list_name, label, ssh_config_file):
+    def __init__(self, args):
         self.report = ''
         self.ip_list_add = []
         self.ip_list_fresh = []
         self.ip_list_remove = []
         self.ip_list_current = []
-        self.label = label
-        self.list_name = list_name
-        self.ip_list_url = ip_list_url
+        self.label = args['label']
+        self.list_name = args['list']
+        self.ip_list_url = args['url']
         self.asn_pattern = r'[Aa][Ss][1-9]\d{0,9}'
-        self.connect = ConnectHandler(**generate_device(ssh_config_file, host))
+        self.connect = generate_connector(args)
         self.emoji = {
             'device':   '\U0001F4F6',       # 📶
             'list':     '\U0001F4CB',       # 📋
@@ -45,12 +46,10 @@ class ListUpdater:
         }
 
     def run(self):
-        self.connect.enable()
         self.generate_lists()
         if self.ip_list_add or self.ip_list_remove:
             self.generate_report()
             self.update_ip_on_device()
-        self.connect.disconnect()
 
     def generate_lists(self):
         self.generate_fresh_ip_list()
@@ -77,24 +76,13 @@ class ListUpdater:
             exit('Source list is empty.')
 
     def generate_current_ip_list(self):
-        command = f'/ip firewall address-list print without-paging where comment={self.label}'
-        output = print_output(self.connect, command)
-        if output:
-            self.ip_list_current = ips_from_data(output)
+        pass
 
     def update_ip_on_device(self):
-        for ip_addr in self.ip_list_remove:
-            entry = f'/ip firewall address-list find address={ip_addr}'
-            self.connect.send_command(f'/ip firewall address-list remove [{entry}]')
-        for ip_addr in self.ip_list_add:
-            entry = f'list={self.list_name} comment={self.label} address={ip_addr}'
-            self.connect.send_command(f'/ip firewall address-list add {entry}')
+        pass
 
     def get_identity(self):
-        command = '/system identity print'
-        identity = print_output(self.connect, command)
-        identity_name = re.match(r'^name: (.*)$', identity).group(1)
-        return identity_name
+        pass
 
     def generate_report(self):
         identity = markdownv2_converter(self.get_identity())
@@ -114,21 +102,76 @@ class ListUpdater:
             self.report += f'```\n'
 
 
-def main(args):
+class ListUpdaterSSH(ListUpdater):
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    def run(self):
+        self.connect.enable()
+        super().run()
+        self.connect.disconnect()
+
+    def generate_current_ip_list(self):
+        command = f'/ip firewall address-list print without-paging where comment={self.label}'
+        output = print_output(self.connect, command)
+        if output:
+            self.ip_list_current = ips_from_data(output)
+
+    def update_ip_on_device(self):
+        for ip_addr in self.ip_list_remove:
+            entry = f'/ip firewall address-list find address={ip_addr}'
+            self.connect.send_command(f'/ip firewall address-list remove [{entry}]')
+        for ip_addr in self.ip_list_add:
+            entry = f'list={self.list_name} comment={self.label} address={ip_addr}'
+            self.connect.send_command(f'/ip firewall address-list add {entry}')
+
+    def get_identity(self):
+        command = '/system identity print'
+        identity = print_output(self.connect, command)
+        identity_name = re.match(r'^name: (.*)$', identity).group(1)
+        return identity_name
+
+
+class ListUpdaterAPI(ListUpdater):
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    def generate_current_ip_list(self):
+        address_list = self.connect.get_resource('/ip/firewall/address-list').get(
+            comment=self.label,
+            list=self.list_name,
+        )
+        self.ip_list_current = [addr['address'] for addr in address_list]
+
+    def update_ip_on_device(self):
+        address_list = self.connect.get_resource('/ip/firewall/address-list')
+        for ip_addr in self.ip_list_remove:
+            addr_id = address_list.get(comment=self.label, list=self.list_name, address=ip_addr)[0]['id']
+            address_list.remove(numbers=addr_id)
+        for ip_addr in self.ip_list_add:
+            address_list.add(list=self.list_name, comment=self.label, address=ip_addr)
+
+    def get_identity(self):
+        identity = self.connect.get_resource('/').call('system/identity/print')
+        identity_name = identity[0]['name']
+        return identity_name
+
+
+def main():
+    args_in = args_parser()
     telegram_bot = generate_telegram_bot(args_in['bottoken'], args_in['chatid'])
-    ssh_config_file = args['sshconf'] if args['sshconf'] else path.join(environ.get('HOME'), '.ssh/config')
-    list_upd = ListUpdater(
-        ssh_config_file=ssh_config_file,
-        host=args['host'],
-        ip_list_url=args['url'],
-        list_name=args['list'],
-        label=args['label'],
-    )
+    if args_in['sshconf']:
+        list_upd = ListUpdaterSSH(args_in)
+    elif args_in['login'] and args_in['password']:
+        list_upd = ListUpdaterAPI(args_in)
+    else:
+        exit('SSH or API?')
     list_upd.run()
     if list_upd.report and telegram_bot and telegram_bot.alive():
         telegram_bot.send_text_message(list_upd.report)
 
 
 if __name__ == '__main__':
-    args_in = args_parser()
-    main(args_in)
+    main()
