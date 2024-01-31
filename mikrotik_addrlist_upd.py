@@ -5,8 +5,8 @@ import re
 from sys import exit
 from argparse import ArgumentParser
 from urllib.request import Request, urlopen
-from related_utils import lists_subtraction, ips_from_data, ips_from_asn, collapse_ips, print_output
 from related_utils import generate_connector, generate_telegram_bot, markdownv2_converter, asns_and_urls
+from related_utils import lists_subtraction, ips_from_data, ips_from_asn, collapse_ips, print_output, Report
 
 
 def args_parser():
@@ -29,7 +29,7 @@ def args_parser():
 class ListUpdater:
 
     def __init__(self, args):
-        self.report = ''
+        self.report = Report()
         self.ip_list_add = []
         self.ip_list_fresh = []
         self.ip_list_remove = []
@@ -88,18 +88,20 @@ class ListUpdater:
         identity = markdownv2_converter(self.get_identity())
         list_name = markdownv2_converter(self.list_name)
         label = markdownv2_converter(self.label)
-        self.report = f'Отчёт об изменении на {self.emoji["device"]}*{identity}*'
-        self.report += f' списка {self.emoji["list"]}__{list_name}__ с меткой {self.emoji["tag"]}\#{label}\n\n'
+        self.report.add(f'Отчёт об изменении на {self.emoji["device"]}*{identity}*')
+        self.report.add(f' списка {self.emoji["list"]}__{list_name}__ с меткой {self.emoji["tag"]}\#{label}\n\n')
         if self.ip_list_add:
-            self.report += f'Добавлено:\n```'
+            self.report.add(f'Добавлено:\n')
+            self.report.add(f'```\n', True)
             for ip_elem in self.ip_list_add:
-                self.report += f'\n{ip_elem}'
-            self.report += f'```\n'
+                self.report.add(f'{ip_elem}\n')
+            self.report.add(f'```\n', True)
         if self.ip_list_remove:
-            self.report += f'Удалено:\n```'
+            self.report.add(f'Удалено:\n')
+            self.report.add(f'```\n', True)
             for ip_elem in self.ip_list_remove:
-                self.report += f'\n{ip_elem}'
-            self.report += f'```\n'
+                self.report.add(f'{ip_elem}\n')
+            self.report.add(f'```\n', True)
 
 
 class ListUpdaterSSH(ListUpdater):
@@ -170,7 +172,8 @@ def main():
         exit('SSH or API?')
     list_upd.run()
     if list_upd.report and telegram_bot and telegram_bot.alive():
-        telegram_bot.send_text_message(list_upd.report)
+        for message in list_upd.report.messages:
+            telegram_bot.send_text_message(message)
 
 
 if __name__ == '__main__':

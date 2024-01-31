@@ -186,6 +186,28 @@ def markdownv2_converter(text):
     return text
 
 
+class Report:
+
+    def __init__(self):
+        self.limit = 4096
+        self.code_block = False
+        self.messages = ['',]
+
+    def add(self, text, code_block_switch=False):
+        if code_block_switch:
+            self.code_block = not self.code_block
+        upd_message = self.messages[-1] + text
+        trigger = len(upd_message) > self.limit
+        match trigger, self.code_block:
+            case False, True | False:
+                self.messages[-1] = upd_message
+            case True, False:
+                self.messages.append(text)
+            case True, True:
+                self.messages[-1] += f'```\n'
+                self.messages.append(f'```\n{text}')
+
+
 class TlgrmBot:
 
     def __init__(self, bot_token, chat_id):
