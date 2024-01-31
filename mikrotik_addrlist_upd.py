@@ -171,7 +171,7 @@ def main():
     else:
         exit('SSH or API?')
     list_upd.run()
-    if list_upd.report and telegram_bot and telegram_bot.alive():
+    if list_upd.report.messages[0] and telegram_bot and telegram_bot.alive():
         for message in list_upd.report.messages:
             telegram_bot.send_text_message(message)
 
