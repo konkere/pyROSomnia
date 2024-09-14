@@ -11,6 +11,7 @@ from time import sleep, time
 from paramiko import SSHConfig
 from ipwhois.asn import ASNOrigin
 from netmiko import ConnectHandler
+from netmiko.exceptions import NetmikoTimeoutException
 
 
 def generate_connector(args):
@@ -32,7 +33,11 @@ def generate_connector(args):
             'disabled_algorithms': disabled_algorithms,
             'global_cmd_verify': False,
         }
-        connector = ConnectHandler(**device)
+        try:
+            connector = ConnectHandler(**device)
+        except NetmikoTimeoutException:
+            device['disabled_algorithms'] = {}
+            connector = ConnectHandler(**device)
     elif args['login'] and args['password']:
         connection = routeros_api.RouterOsApiPool(
             host=args['host'],

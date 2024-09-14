@@ -17,11 +17,13 @@ from related_utils import generate_connector, allowed_filename, print_output, si
 def args_parser():
     parser = ArgumentParser(description='RouterOS backuper.')
     parser.add_argument('-s', '--sshconf', type=str, help='Path to ssh_config.', required=False)
-    parser.add_argument('-n', '--hosts', type=str, help='Comma separated hosts or single host (in ssh_config).',
+    parser.add_argument('-n', '--hosts', type=str,
+                        help='Comma separated hosts or single host (in ssh_config).', required=False)
+    parser.add_argument('-f', '--hostfile', type=str, help='Path to file with list of Hosts.',
                         required=False)
-    parser.add_argument('-f', '--hostfile', type=str, help='Path to file with list of Hosts.', required=False)
     parser.add_argument('-p', '--path', type=str, help='Path to backups.', required=True)
-    parser.add_argument('-t', '--lifetime', type=int, help='Files (backup) lifetime (in days).', required=False)
+    parser.add_argument('-t', '--lifetime', type=int, help='Files (backup) lifetime (in days).',
+                        required=False)
     parser.add_argument('-b', '--bottoken', type=str, help='Telegram Bot token.', required=False)
     parser.add_argument('-c', '--chatid', type=str, help='Telegram chat id.', required=False)
     arguments = parser.parse_args().__dict__
