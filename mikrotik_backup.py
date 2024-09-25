@@ -81,7 +81,7 @@ class Backuper(Thread):
         )
         self.lifetime = lifetime
         self.subdir = 'backup'
-        self.delay = 1
+        self.delay = 10
         self.report = ''
         self.emoji = {
             'device':   '\U0001F4F6',       # 📶
@@ -97,10 +97,12 @@ class Backuper(Thread):
         backup_name = f'{identity}_{datetime.now().strftime("%Y.%m.%d_%H.%M.%S")}'
         self.make_dirs(path_to_backup)
         self.create_backup(backup_name)
+        sleep(self.delay)
         self.add_to_report(f'В каталоге {self.emoji["dir"]}`{markdownv2_converter(path_to_backup)}/` сохранены файлы:')
         for backup_type in ['rsc', 'backup']:
             self.download_backup(backup_type, backup_name, path_to_backup)
             self.remove_backup_from_device(backup_type, backup_name)
+        sleep(self.delay)
         self.connect.disconnect()
         if self.lifetime:
             remove_old_files(path_to_backup, self.lifetime)
@@ -124,20 +126,23 @@ class Backuper(Thread):
         command = f'/file print detail where name={self.subdir}'
         backup_dir = print_output(self.connect, command)
         if not backup_dir:
-            # Crutch for create directory
+            # Crutch for create directory ROS6
             self.connect.send_command(f'/ip smb shares add directory={self.subdir} name=crutch_for_dir')
             self.connect.send_command('/ip smb shares remove [/ip smb shares find where name=crutch_for_dir]')
+            # Create directory ROS7
+            try:
+                self.connect.send_command(f'/file add name={self.subdir} type=directory')
+            except Exception:
+                pass
 
     def create_backup(self, backup_name):
         file_path_name = f'{self.subdir}/{backup_name}'
         self.connect.send_command(
-            f'/export file={file_path_name}.rsc', read_timeout=240, cmd_verify=False
+            f'/export file={file_path_name}.rsc', read_timeout=240, cmd_verify=False, expect_string=""
         )
         self.connect.send_command(
-            f'/system backup save dont-encrypt=yes name={file_path_name}.backup', read_timeout=240, cmd_verify=False
+            f'/system backup save dont-encrypt=yes name={file_path_name}.backup', read_timeout=240, cmd_verify=False, expect_string=""
         )
-        # Wait for files creation
-        sleep(self.delay)
 
     def download_backup(self, backup_type, backup_name, path_to_backup):
         src_file = f'{backup_name}.{backup_type}'
@@ -151,9 +156,8 @@ class Backuper(Thread):
             direction=direction,
             overwrite_file=True,
             disable_md5=True,
+            socket_timeout=60.0,
         )
-        # Wait for file download
-        sleep(self.delay)
         file_name = markdownv2_converter(src_file)
         try:
             file_stats = stat(dst_file)
@@ -190,6 +194,7 @@ class Failakuper(Thread):
 
 
 def main():
+    hosts = []
     match args_in['hostfile'], args_in['hosts']:
         case str() as path_to_file, None:
             with open(path_to_file) as file:

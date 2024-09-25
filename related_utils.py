@@ -36,7 +36,7 @@ def generate_connector(args):
         try:
             connector = ConnectHandler(**device)
         except NetmikoTimeoutException:
-            device['disabled_algorithms'] = {}
+            del device['disabled_algorithms']
             connector = ConnectHandler(**device)
     elif args['login'] and args['password']:
         connection = routeros_api.RouterOsApiPool(
