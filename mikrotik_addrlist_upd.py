@@ -5,6 +5,7 @@ import re
 from sys import exit
 from argparse import ArgumentParser
 from urllib.request import Request, urlopen
+from routeros_api.exceptions import RouterOsApiCommunicationError
 from related_utils import generate_connector, generate_telegram_bot, markdownv2_converter, asns_and_urls
 from related_utils import lists_subtraction, ips_from_data, ips_from_asn, collapse_ips, print_output, Report
 
@@ -150,10 +151,17 @@ class ListUpdaterAPI(ListUpdater):
     def update_ip_on_device(self):
         address_list = self.connect.get_resource('/ip/firewall/address-list')
         for ip_addr in self.ip_list_remove:
-            addr_id = address_list.get(comment=self.label, list=self.list_name, address=ip_addr)[0]['id']
+            try:
+                addr_id = address_list.get(comment=self.label, list=self.list_name, address=ip_addr)[0]['id']
+            except IndexError:
+                continue
             address_list.remove(numbers=addr_id)
         for ip_addr in self.ip_list_add:
-            address_list.add(list=self.list_name, comment=self.label, address=ip_addr)
+            try:
+                address_list.add(list=self.list_name, comment=self.label, address=ip_addr)
+            except RouterOsApiCommunicationError as exc:
+                if 'already have such entry' not in str(exc):
+                    raise
 
     def get_identity(self):
         identity = self.connect.get_resource('/').call('system/identity/print')
