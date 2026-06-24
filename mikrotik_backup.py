@@ -125,7 +125,7 @@ class Backuper(Thread):
             pass
         command = f'/file print detail where name={self.subdir}'
         backup_dir = print_output(self.connect, command)
-        if not backup_dir:
+        if f'name={self.subdir} type=directory' not in backup_dir:
             # Crutch for create directory ROS6
             self.connect.send_command(f'/ip smb shares add directory={self.subdir} name=crutch_for_dir')
             self.connect.send_command('/ip smb shares remove [/ip smb shares find where name=crutch_for_dir]')
