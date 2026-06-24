@@ -1,4 +1,4 @@
-# pyROSomnia
+![pyROSomnia](/.github/img/pyROSomnia.svg)
 
 A set of Python scripts for maintaining RouterOS (MikroTik) devices: automatic configuration backups and firewall address-list updates from external sources. Both scripts can send reports to Telegram.
 
