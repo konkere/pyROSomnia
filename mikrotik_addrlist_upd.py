@@ -35,6 +35,7 @@ class ListUpdater:
         self.ip_list_fresh = []
         self.ip_list_remove = []
         self.ip_list_current = []
+        self.ip_list_occupied = []
         self.label = args['label']
         self.list_name = args['list']
         self.ip_list_url = args['url']
@@ -55,7 +56,9 @@ class ListUpdater:
     def generate_lists(self):
         self.generate_fresh_ip_list()
         self.generate_current_ip_list()
+        self.generate_occupied_ip_list()
         self.ip_list_add = lists_subtraction(self.ip_list_fresh, self.ip_list_current)
+        self.ip_list_add = lists_subtraction(self.ip_list_add, self.ip_list_occupied)
         self.ip_list_remove = lists_subtraction(self.ip_list_current, self.ip_list_fresh)
 
     def generate_fresh_ip_list(self):
@@ -77,6 +80,9 @@ class ListUpdater:
             exit('Source list is empty.')
 
     def generate_current_ip_list(self):
+        pass
+
+    def generate_occupied_ip_list(self):
         pass
 
     def update_ip_on_device(self):
@@ -121,6 +127,12 @@ class ListUpdaterSSH(ListUpdater):
         if output:
             self.ip_list_current = ips_from_data(output)
 
+    def generate_occupied_ip_list(self):
+        command = f'/ip firewall address-list print without-paging where list={self.list_name}'
+        output = print_output(self.connect, command)
+        if output:
+            self.ip_list_occupied = ips_from_data(output)
+
     def update_ip_on_device(self):
         for ip_addr in self.ip_list_remove:
             entry = f'/ip firewall address-list find address={ip_addr}'
@@ -147,6 +159,12 @@ class ListUpdaterAPI(ListUpdater):
             list=self.list_name,
         )
         self.ip_list_current = [addr['address'] for addr in address_list]
+
+    def generate_occupied_ip_list(self):
+        address_list = self.connect.get_resource('/ip/firewall/address-list').get(
+            list=self.list_name,
+        )
+        self.ip_list_occupied = [addr['address'] for addr in address_list]
 
     def update_ip_on_device(self):
         address_list = self.connect.get_resource('/ip/firewall/address-list')
