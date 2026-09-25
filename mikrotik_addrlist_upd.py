@@ -142,9 +142,11 @@ class ListUpdaterSSH(ListUpdater):
             self.connect.send_command(f'/ip firewall address-list add {entry}')
 
     def get_identity(self):
-        command = '/system identity print'
+        command = '/system identity get name; put [/system identity get name]'
         identity = print_output(self.connect, command)
-        identity_name = re.match(r'^name: (.*)$', identity).group(1)
+        identity_name = identity.strip()
+        if not identity_name:
+            identity_name = 'unknown_device'
         return identity_name
 
 
