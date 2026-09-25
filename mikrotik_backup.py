@@ -113,7 +113,17 @@ class Backuper(Thread):
     def generate_identity(self):
         command = '/system identity print'
         identity = print_output(self.connect, command)
-        identity_name = re.match(r'^name: (.*)$', identity).group(1)
+        try:
+            match = re.match(r'^\s*name:\s*(.*)', identity, re.DOTALL)
+            if match is None:
+                raise ValueError(f'не удалось распарсить вывод identity: {identity!r}')
+            # RouterOS на 7.23.7 рвёт имя на посимвольные строки — склеиваем обратно
+            identity_name = ''.join(match.group(1).split())
+            if not identity_name:
+                raise ValueError('пустое имя после парсинга')
+        except Exception as e:
+            self.add_to_report(f'{self.emoji.get("warning", "⚠️")} Не удалось получить identity: {e}')
+            identity_name = 'unknown_device'
         self.add_to_report(f'{self.emoji["device"]}*{markdownv2_converter(identity_name)}*')
         allowed_identity_name = allowed_filename(identity_name)
         return allowed_identity_name
